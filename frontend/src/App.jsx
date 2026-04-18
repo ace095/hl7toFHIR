@@ -25,7 +25,8 @@ function App() {
         return
       }
       setResult(JSON.stringify(payload, null, 2))
-    } catch {
+    } catch (error) {
+      console.error(error)
       setError('Unable to reach backend API. Confirm FastAPI is running on port 8000.')
     }
   }

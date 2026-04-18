@@ -1,3 +1,5 @@
+import pytest
+
 from app.mapper import map_to_fhir_bundle
 from app.parser import HL7ParseError, parse_hl7_message
 
@@ -11,7 +13,7 @@ ADT_MESSAGE = (
 
 def test_parse_hl7_message_extracts_required_segments() -> None:
     segments = parse_hl7_message(ADT_MESSAGE)
-    assert set(["MSH", "PID", "PV1"]).issubset(set(segments))
+    assert {"MSH", "PID", "PV1"}.issubset(segments.keys())
 
 
 def test_map_to_fhir_bundle_creates_patient_and_encounter() -> None:
@@ -24,9 +26,5 @@ def test_map_to_fhir_bundle_creates_patient_and_encounter() -> None:
 
 def test_parse_hl7_message_requires_pid() -> None:
     message = "MSH|^~\\&|A|B|C|D|202401011200||ADT^A01|1|P|2.5"
-    try:
+    with pytest.raises(HL7ParseError, match="PID"):
         parse_hl7_message(message)
-    except HL7ParseError as error:
-        assert "PID" in str(error)
-    else:
-        raise AssertionError("Expected HL7ParseError for missing PID segment")

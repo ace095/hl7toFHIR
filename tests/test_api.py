@@ -26,3 +26,9 @@ def test_convert_endpoint_handles_parse_error() -> None:
 
     assert response.status_code == 400
     assert "PID" in response.json()["detail"]
+
+
+def test_convert_endpoint_rejects_empty_message() -> None:
+    response = client.post("/api/v1/convert", json={"hl7_message": ""})
+
+    assert response.status_code == 422

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,9 +10,10 @@ from app.models import ConvertRequest
 from app.parser import HL7ParseError, parse_hl7_message
 
 app = FastAPI(title="HL7 v2 to FHIR Converter MVP")
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[origin.strip() for origin in allowed_origins.split(",") if origin.strip()],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -23,7 +26,7 @@ def convert_hl7_to_fhir(request: ConvertRequest) -> dict:
         return map_to_fhir_bundle(segments)
     except HL7ParseError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    except Exception as error:  # pragma: no cover - defensive fallback
+    except Exception as error:  # pragma: no cover - catch-all for unexpected runtime failures
         raise HTTPException(status_code=500, detail="Unexpected conversion error.") from error
 
 

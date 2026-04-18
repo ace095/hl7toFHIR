@@ -56,6 +56,8 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]]) -> Dict[str, object]:
     entries: List[Dict[str, object]] = [{"resource": patient_resource}]
 
     if pv1:
+        # Prefer PV1.19 Visit Number per HL7 encounter identity, fallback to PV1.3 location component
+        # so Encounter has a stable id even when Visit Number is omitted in lightweight ADT payloads.
         encounter_identifier = _first_component(_safe_field(pv1, 19)) or _first_component(_safe_field(pv1, 3))
         encounter_resource: Dict[str, object] = {
             "resourceType": "Encounter",

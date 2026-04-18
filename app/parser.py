@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Dict, List
 
 
@@ -13,7 +12,7 @@ def _safe_field(fields: List[str], index: int) -> str:
 
 
 def parse_hl7_message(hl7_message: str) -> Dict[str, List[str]]:
-    lines = [line.strip() for line in re.split(r"[\r\n]+", hl7_message.strip()) if line.strip()]
+    lines = [line.strip() for line in hl7_message.strip().splitlines() if line.strip()]
     if not lines:
         raise HL7ParseError("HL7 message is empty.")
 
@@ -23,6 +22,8 @@ def parse_hl7_message(hl7_message: str) -> Dict[str, List[str]]:
         segment = fields[0].upper() if fields else ""
         if not segment:
             continue
+        # MVP keeps the first instance of each segment type; future iterations can support repeats
+        # needed for segment types that commonly appear multiple times (for example OBX/NK1 groups).
         if segment not in segments:
             segments[segment] = fields
 
