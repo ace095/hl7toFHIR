@@ -23,6 +23,11 @@ def test_map_to_fhir_bundle_creates_patient_and_encounter() -> None:
     assert len(bundle["entry"]) == 2
     assert bundle["entry"][0]["resource"]["resourceType"] == "Patient"
     assert bundle["entry"][1]["resource"]["resourceType"] == "Encounter"
+    # Verify deterministic identifier: {assigning_authority}|{id_type}|{id}
+    patient = bundle["entry"][0]["resource"]
+    assert patient["id"] == "HOSP|MR|123456"
+    assert patient["identifier"][0]["value"] == "123456"
+    assert patient["identifier"][0]["type"]["code"] == "MR"
 
 
 def test_parse_hl7_message_requires_pid() -> None:
