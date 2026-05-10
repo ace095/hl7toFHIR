@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 class HL7ParseError(ValueError):
@@ -11,12 +11,13 @@ def _safe_field(fields: List[str], index: int) -> str:
     return fields[index] if index < len(fields) else ""
 
 
-def parse_hl7_message(hl7_message: str) -> Dict[str, List[str]]:
+def parse_hl7_message(hl7_message: str) -> Tuple[Dict[str, List[str]], List[str]]:
     lines = [line.strip() for line in hl7_message.strip().splitlines() if line.strip()]
     if not lines:
         raise HL7ParseError("HL7 message is empty.")
 
     segments: Dict[str, List[str]] = {}
+    warnings: List[str] = []
     for line in lines:
         fields = line.split("|")
         segment = fields[0].upper() if fields else ""
@@ -26,6 +27,8 @@ def parse_hl7_message(hl7_message: str) -> Dict[str, List[str]]:
         # needed for segment types that commonly appear multiple times (for example OBX/NK1 groups).
         if segment not in segments:
             segments[segment] = fields
+        else:
+            warnings.append(f"Repeated segment '{segment}' encountered; only first instance will be processed.")
 
     if "MSH" not in segments:
         raise HL7ParseError("HL7 message must contain an MSH segment.")
@@ -37,4 +40,4 @@ def parse_hl7_message(hl7_message: str) -> Dict[str, List[str]]:
     if message_type and not message_type.startswith("ADT"):
         raise HL7ParseError(f"Unsupported HL7 message type '{message_type}'. Only ADT is supported.")
 
-    return segments
+    return segments, warnings

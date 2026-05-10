@@ -12,12 +12,13 @@ ADT_MESSAGE = (
 
 
 def test_parse_hl7_message_extracts_required_segments() -> None:
-    segments = parse_hl7_message(ADT_MESSAGE)
+    segments, warnings = parse_hl7_message(ADT_MESSAGE)
     assert {"MSH", "PID", "PV1"}.issubset(segments.keys())
 
 
 def test_map_to_fhir_bundle_creates_patient_and_encounter() -> None:
-    bundle = map_to_fhir_bundle(parse_hl7_message(ADT_MESSAGE))
+    segments, warnings = parse_hl7_message(ADT_MESSAGE)
+    bundle = map_to_fhir_bundle(segments, warnings)
     assert bundle["resourceType"] == "Bundle"
     assert len(bundle["entry"]) == 2
     assert bundle["entry"][0]["resource"]["resourceType"] == "Patient"

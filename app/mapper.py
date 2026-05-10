@@ -32,7 +32,7 @@ def _map_gender(raw: str) -> str:
     return mapping.get(raw.upper(), "unknown") if raw else "unknown"
 
 
-def map_to_fhir_bundle(segments: Dict[str, List[str]]) -> Dict[str, object]:
+def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> Dict[str, object]:
     pid = segments["PID"]
     pv1 = segments.get("PV1")
 
