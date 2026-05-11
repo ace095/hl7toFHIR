@@ -5,6 +5,11 @@ const sampleMessage = `MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|59
 PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r
 PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345`
 
+// Load API base URL from environment variable (configurable per deployment)
+// Default: http://127.0.0.1:8000 for local development
+// Set VITE_API_BASE_URL in .env files to customize for other environments
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+
 function App() {
   const [hl7Message, setHl7Message] = useState(sampleMessage)
   const [result, setResult] = useState('')
@@ -14,7 +19,7 @@ function App() {
     setResult('')
     setError('')
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/convert', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hl7_message: hl7Message }),
@@ -27,7 +32,7 @@ function App() {
       setResult(JSON.stringify(payload, null, 2))
     } catch (error) {
       console.error(error)
-      setError('Unable to reach backend API. Confirm FastAPI is running on port 8000.')
+      setError(`Unable to reach backend API at ${API_BASE_URL}. Confirm FastAPI is running, or set VITE_API_BASE_URL environment variable.`)
     }
   }
 
