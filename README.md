@@ -9,6 +9,11 @@ This project provides a local-first MVP web app that:
 - maps `PID` to a FHIR `Patient` and `PV1` to a FHIR `Encounter`,
 - returns a FHIR R4 `Bundle` as JSON.
 
+## Project docs
+
+- [Product](Product.md) - business problem, product goal, and implementation rationale.
+- [Production Test Feed](PRODUCTION_TEST_FEED.md) - production-like HL7 samples and validated expected outcomes.
+
 ## Tech stack
 
 - Backend: Python + FastAPI

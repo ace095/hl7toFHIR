@@ -17,8 +17,9 @@ def test_convert_endpoint_returns_fhir_bundle() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["resourceType"] == "Bundle"
-    assert len(payload["entry"]) == 2
+    assert payload["bundle"]["resourceType"] == "Bundle"
+    assert len(payload["bundle"]["entry"]) == 2
+    assert "warnings" in payload
 
 
 def test_convert_endpoint_handles_parse_error() -> None:
