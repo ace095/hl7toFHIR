@@ -41,7 +41,7 @@ function App() {
   const [selectedFeed, setSelectedFeed] = useState(sampleFeeds[0].key)
 
   const parsedLines = useMemo(
-    () => hl7Message.split(/\r?\n/).filter((line) => line.trim().length > 0),
+    () => hl7Message.split(/\r\n|\n|\r/).filter((line) => line.trim().length > 0),
     [hl7Message],
   )
 
@@ -194,8 +194,8 @@ function App() {
                 <div className="warnings">
                   <h2>Warnings</h2>
                   <ul>
-                    {result.warnings.map((warning) => (
-                      <li key={warning}>{warning}</li>
+                    {result.warnings.map((warning, index) => (
+                      <li key={`${index}-${warning}`}>{warning}</li>
                     ))}
                   </ul>
                 </div>

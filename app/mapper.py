@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
+import re
 from typing import Dict, List, Optional
+from urllib.parse import quote
 from app.vocabulary import map_admission_class, map_gender
 
 
@@ -28,7 +31,7 @@ def _map_gender_with_warning(raw: str, warnings: List[str]) -> str:
     if not is_mapped and raw and raw.upper() not in ("M", "F", "O", "U"):
         warnings.append(
             f"Patient gender code '{raw}' is not mapped to standard FHIR value; "
-            f"using '{fhir_gender}' with original code preserved for audit."
+            f"using '{fhir_gender}' for Patient.gender."
         )
     return fhir_gender
 
@@ -76,14 +79,25 @@ def _map_adt_trigger_to_encounter_status(trigger_event: str) -> str:
     return mapping.get(trigger_event, "in-progress") if trigger_event else "in-progress"
 
 
+def _identifier_system(assigning_authority: str) -> str:
+    if re.fullmatch(r"\d+(?:\.\d+)+", assigning_authority):
+        return f"urn:oid:{assigning_authority}"
+    return f"https://hl7tofhir.local/namingsystem/{quote(assigning_authority, safe='')}"
+
+
+def _fhir_safe_id(prefix: str, composite_identifier: str) -> str:
+    identifier_hash = hashlib.sha256(composite_identifier.encode("utf-8")).hexdigest()[:24]
+    return f"{prefix}-{identifier_hash}"
+
+
 def _parse_cx_identifier(raw: str) -> dict:
     """
     Parse an HL7 CX (composite ID) field: ID^Check Digit^Check Digit Scheme^Assigning Authority^Identifier Type
     Returns dict with 'id', 'assigning_authority', 'id_type' extracted.
     
     Decision: Build deterministic, collision-safe identifiers using:
-      system = "urn:oid:assigning_authority" or "urn:unknown" if missing
-      value = "{id}|{id_type}" (scoped by assigning authority via system)
+      identifier.system = OID URN only for numeric OIDs; otherwise a URL NamingSystem namespace
+      identifier.value = "{assigning_authority}|{id_type}|{id}"
     
     Risk mitigation: Assigning authority is critical for cross-facility safety.
     If missing, emit a warning since identifier may be ambiguous.
@@ -127,7 +141,7 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
             f"only first identifier '{pid3['id']}' will be processed."
         )
     
-    # Build patient ID scoped by assigning authority + identifier type for cross-facility safety
+    # Build composite identity scoped by assigning authority + identifier type for cross-facility safety
     patient_id_value = pid3["id"] or "unknown"
     patient_assigning_authority = pid3["assigning_authority"]
     patient_id_type = pid3["id_type"]
@@ -139,9 +153,8 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
         )
         patient_assigning_authority = "unknown"
     
-    # Deterministic ID format: {assigning_authority}|{id_type}|{id}
-    # This ensures "123" at Hospital A (HOSP_A|MR|123) != "123" at Hospital B (HOSP_B|MR|123)
     patient_identifier = f"{patient_assigning_authority}|{patient_id_type}|{patient_id_value}"
+    patient_fhir_id = _fhir_safe_id("patient", patient_identifier)
     
     patient_name = _safe_field(pid, 5).split("^")
     family_name = patient_name[0] if patient_name else ""
@@ -149,12 +162,12 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
 
     patient_resource: Dict[str, object] = {
         "resourceType": "Patient",
-        "id": patient_identifier,
+        "id": patient_fhir_id,
         "identifier": [
             {
-                "system": f"urn:oid:{patient_assigning_authority}",
+                "system": _identifier_system(patient_assigning_authority),
                 "type": {"code": patient_id_type},
-                "value": patient_id_value,
+                "value": patient_identifier,
             }
         ],
         "name": [{"family": family_name, "given": [given_name] if given_name else []}],
@@ -178,6 +191,14 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
             pv1_19 = _parse_cx_identifier(pv1_19_raw)
             encounter_id_value = pv1_19["id"]
             encounter_assigning_authority = pv1_19["assigning_authority"] or patient_assigning_authority
+            if not encounter_id_value:
+                encounter_id_value = _first_component(pv1_3_raw)
+                warnings.append(
+                    "Encounter visit number field PV1.19 is present but empty; "
+                    "resolved encounter identifier from PV1.3 location component."
+                )
+                if not encounter_id_value:
+                    encounter_id_value = "encounter-unknown"
         else:
             # Fallback: use location component from PV1.3 (first component)
             encounter_id_value = _first_component(pv1_3_raw)
@@ -189,8 +210,8 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
                 "visit number is preferred for deterministic encounter identity."
             )
         
-        # Deterministic Encounter ID using same pattern as Patient for consistency
         encounter_identifier = f"{encounter_assigning_authority}|VN|{encounter_id_value}"
+        encounter_fhir_id = _fhir_safe_id("encounter", encounter_identifier)
         
         # Map ADT trigger event to Encounter status per HL7 workflow semantics
         encounter_status = _map_adt_trigger_to_encounter_status(trigger_event)
@@ -205,15 +226,15 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
         
         encounter_resource: Dict[str, object] = {
             "resourceType": "Encounter",
-            "id": encounter_identifier,
+            "id": encounter_fhir_id,
             "status": encounter_status,
             "class": {"code": admission_class_code},
-            "subject": {"reference": f"Patient/{patient_identifier}"},
+            "subject": {"reference": f"Patient/{patient_fhir_id}"},
             "identifier": [
                 {
-                    "system": f"urn:oid:{encounter_assigning_authority}",
+                    "system": _identifier_system(encounter_assigning_authority),
                     "type": {"code": "VN"},
-                    "value": encounter_id_value,
+                    "value": encounter_identifier,
                 }
             ],
         }

@@ -23,10 +23,12 @@ def test_map_to_fhir_bundle_creates_patient_and_encounter() -> None:
     assert len(bundle["entry"]) == 2
     assert bundle["entry"][0]["resource"]["resourceType"] == "Patient"
     assert bundle["entry"][1]["resource"]["resourceType"] == "Encounter"
-    # Verify deterministic identifier: {assigning_authority}|{id_type}|{id}
+    # Verify deterministic identifier handling and FHIR-safe resource IDs
     patient = bundle["entry"][0]["resource"]
-    assert patient["id"] == "HOSP|MR|123456"
-    assert patient["identifier"][0]["value"] == "123456"
+    assert patient["id"].startswith("patient-")
+    assert "|" not in patient["id"]
+    assert patient["identifier"][0]["value"] == "HOSP|MR|123456"
+    assert patient["identifier"][0]["system"] == "https://hl7tofhir.local/namingsystem/HOSP"
     assert patient["identifier"][0]["type"]["code"] == "MR"
 
 
@@ -80,9 +82,8 @@ def test_missing_assigning_authority_emits_warning() -> None:
     bundle = map_to_fhir_bundle(segments, warnings_from_mapper)
     assert any("assigning authority" in w.lower() for w in warnings_from_mapper), \
         "Should warn about missing assigning authority"
-    # ID should default to 'unknown' for assigning authority
     patient = bundle["entry"][0]["resource"]
-    assert "unknown|" in patient["id"]
+    assert patient["identifier"][0]["value"] == "unknown|MR|12345"
 
 
 def test_multiple_identifiers_in_pid3_emits_warning() -> None:
@@ -99,8 +100,7 @@ def test_multiple_identifiers_in_pid3_emits_warning() -> None:
         "Should warn about repeated identifiers"
     # Should use first identifier only
     patient = bundle["entry"][0]["resource"]
-    assert patient["id"] == "HOSP|MR|A123"
-    assert patient["identifier"][0]["value"] == "A123"
+    assert patient["identifier"][0]["value"] == "HOSP|MR|A123"
 
 
 def test_unknown_gender_code_maps_to_unknown() -> None:
@@ -162,8 +162,8 @@ def test_deterministic_identifier_prevents_collisions() -> None:
     patient_b = bundle_b["entry"][0]["resource"]
     
     # Same MR number but different facilities => different IDs
-    assert patient_a["id"] == "HOSP_A|MR|12345"
-    assert patient_b["id"] == "HOSP_B|MR|12345"
+    assert patient_a["identifier"][0]["value"] == "HOSP_A|MR|12345"
+    assert patient_b["identifier"][0]["value"] == "HOSP_B|MR|12345"
     assert patient_a["id"] != patient_b["id"], "Identifiers should be scoped by facility"
 
 
@@ -278,8 +278,34 @@ def test_compact_pv1_segment_uses_location_fallback_for_encounter_identifier() -
     segments, warnings = parse_hl7_message(message)
     bundle = map_to_fhir_bundle(segments, warnings)
     encounter = bundle["entry"][1]["resource"]
-    assert encounter["id"] == "HOSP|VN|ER"
+    assert encounter["id"].startswith("encounter-")
+    assert "|" not in encounter["id"]
+    assert encounter["identifier"][0]["value"] == "HOSP|VN|ER"
     assert any("PV1.19 Visit Number absent" in warning for warning in warnings)
+
+
+def test_numeric_oid_assigning_authority_uses_oid_urn_system() -> None:
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|599102|P|2.3\r"
+        "PID|1||123456^^^1.2.840.114350^MR||DOE^JOHN||19800101|M"
+    )
+    segments, warnings = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, warnings)
+    patient = bundle["entry"][0]["resource"]
+    assert patient["identifier"][0]["system"] == "urn:oid:1.2.840.114350"
+
+
+def test_pv1_19_present_but_empty_id_falls_back_to_pv1_3() -> None:
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|ER^01^01||||||||||||||||^^^HOSP_A^VN"
+    )
+    segments, warnings = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, warnings)
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["identifier"][0]["value"] == "HOSP_A|VN|ER"
+    assert any("PV1.19 is present but empty" in warning for warning in warnings)
 
 
 def test_birth_date_timestamp_variant_uses_date_component() -> None:
