@@ -248,3 +248,48 @@ def test_unknown_adt_trigger_defaults_to_in_progress() -> None:
     bundle = map_to_fhir_bundle(segments, [])
     encounter = bundle["entry"][1]["resource"]
     assert encounter["status"] == "in-progress"
+
+
+# ============================================================================
+# R5: Legacy Structure Compatibility Coverage
+# ============================================================================
+
+
+def test_legacy_msh9_without_structure_component_still_maps_trigger_status() -> None:
+    """Older HL7 messages may omit the MSH-9.3 structure component."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A03|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, warnings = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, warnings)
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["status"] == "finished"
+
+
+def test_compact_pv1_segment_uses_location_fallback_for_encounter_identifier() -> None:
+    """Shorter legacy PV1 segments should still produce a deterministic encounter ID."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|ER^01^01"
+    )
+    segments, warnings = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, warnings)
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["id"] == "HOSP|VN|ER"
+    assert any("PV1.19 Visit Number absent" in warning for warning in warnings)
+
+
+def test_birth_date_timestamp_variant_uses_date_component() -> None:
+    """Legacy TS values with time precision should still normalize to the date component."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101123045|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, warnings = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, warnings)
+    patient = bundle["entry"][0]["resource"]
+    assert patient["birthDate"] == "1980-01-01"
