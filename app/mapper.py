@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 import hashlib
-import re
 from typing import Dict, List, Optional
 from urllib.parse import quote
 from app.vocabulary import map_admission_class, map_gender
@@ -79,13 +78,19 @@ def _map_adt_trigger_to_encounter_status(trigger_event: str) -> str:
     return mapping.get(trigger_event, "in-progress") if trigger_event else "in-progress"
 
 
+def _is_numeric_oid(value: str) -> bool:
+    parts = value.split(".")
+    return len(parts) > 1 and all(part.isdigit() for part in parts)
+
+
 def _identifier_system(assigning_authority: str) -> str:
-    if re.fullmatch(r"\d+(?:\.\d+)+", assigning_authority):
+    if _is_numeric_oid(assigning_authority):
         return f"urn:oid:{assigning_authority}"
     return f"https://hl7tofhir.local/namingsystem/{quote(assigning_authority, safe='')}"
 
 
 def _fhir_safe_id(prefix: str, composite_identifier: str) -> str:
+    # 24 hex chars = 96 bits of SHA-256 output; deterministic and comfortably within FHIR id length limits.
     identifier_hash = hashlib.sha256(composite_identifier.encode("utf-8")).hexdigest()[:24]
     return f"{prefix}-{identifier_hash}"
 
@@ -198,13 +203,13 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
                     "resolved encounter identifier from PV1.3 location component."
                 )
                 if not encounter_id_value:
-                    encounter_id_value = "encounter-unknown"
+                    encounter_id_value = "unknown"
         else:
             # Fallback: use location component from PV1.3 (first component)
             encounter_id_value = _first_component(pv1_3_raw)
             encounter_assigning_authority = patient_assigning_authority
             if not encounter_id_value:
-                encounter_id_value = "encounter-unknown"
+                encounter_id_value = "unknown"
             warnings.append(
                 "Encounter identifier resolved from PV1.3 location component (PV1.19 Visit Number absent); "
                 "visit number is preferred for deterministic encounter identity."
