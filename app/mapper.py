@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Dict, List, Optional
+from app.vocabulary import map_admission_class, map_gender
 
 
 def _safe_field(fields: List[str], index: int) -> str:
@@ -22,14 +23,14 @@ def _normalize_birth_date(raw: str) -> Optional[str]:
         return None
 
 
-def _map_gender(raw: str) -> str:
-    mapping = {
-        "M": "male",
-        "F": "female",
-        "O": "other",
-        "U": "unknown",
-    }
-    return mapping.get(raw.upper(), "unknown") if raw else "unknown"
+def _map_gender_with_warning(raw: str, warnings: List[str]) -> str:
+    fhir_gender, display, is_mapped = map_gender(raw)
+    if not is_mapped and raw and raw.upper() not in ("M", "F", "O", "U"):
+        warnings.append(
+            f"Patient gender code '{raw}' is not mapped to standard FHIR value; "
+            f"using '{fhir_gender}' with original code preserved for audit."
+        )
+    return fhir_gender
 
 
 def _map_adt_trigger_to_encounter_status(trigger_event: str) -> str:
@@ -157,7 +158,7 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
             }
         ],
         "name": [{"family": family_name, "given": [given_name] if given_name else []}],
-        "gender": _map_gender(_safe_field(pid, 8)),
+        "gender": _map_gender_with_warning(_safe_field(pid, 8), warnings),
     }
 
     birth_date = _normalize_birth_date(_safe_field(pid, 7))
@@ -194,11 +195,19 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
         # Map ADT trigger event to Encounter status per HL7 workflow semantics
         encounter_status = _map_adt_trigger_to_encounter_status(trigger_event)
         
+        pv1_2_raw = _safe_field(pv1, 2) or "I"
+        admission_class_code, admission_class_display, is_admission_mapped = map_admission_class(pv1_2_raw)
+        if not is_admission_mapped and pv1_2_raw not in ("I", "O", "E", "U", "N", "P"):
+            warnings.append(
+                f"Admission class code '{pv1_2_raw}' is not mapped to standard FHIR value; "
+                f"using '{admission_class_code}' for Encounter.class."
+            )
+        
         encounter_resource: Dict[str, object] = {
             "resourceType": "Encounter",
             "id": encounter_identifier,
             "status": encounter_status,
-            "class": {"code": _safe_field(pv1, 2) or "IMP"},
+            "class": {"code": admission_class_code},
             "subject": {"reference": f"Patient/{patient_identifier}"},
             "identifier": [
                 {
