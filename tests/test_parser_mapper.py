@@ -308,6 +308,19 @@ def test_pv1_19_present_but_empty_id_falls_back_to_pv1_3() -> None:
     assert any("PV1.19 is present but empty" in warning for warning in warnings)
 
 
+def test_pv1_19_present_but_empty_id_uses_unknown_when_pv1_3_missing() -> None:
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|||||||||||||||||^^^HOSP_A^VN"
+    )
+    segments, warnings = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, warnings)
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["identifier"][0]["value"] == "HOSP_A|VN|unknown"
+    assert any("using 'unknown' encounter identifier" in warning for warning in warnings)
+
+
 def test_birth_date_timestamp_variant_uses_date_component() -> None:
     """Legacy TS values with time precision should still normalize to the date component."""
     message = (

@@ -199,12 +199,17 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
             encounter_assigning_authority = pv1_19["assigning_authority"] or patient_assigning_authority
             if not encounter_id_value:
                 encounter_id_value = _first_component(pv1_3_raw)
-                warnings.append(
-                    "Encounter visit number field PV1.19 is present but empty; "
-                    "resolved encounter identifier from PV1.3 location component."
-                )
-                if not encounter_id_value:
+                if encounter_id_value:
+                    warnings.append(
+                        "Encounter visit number field PV1.19 is present but empty; "
+                        "resolved encounter identifier from PV1.3 location component."
+                    )
+                else:
                     encounter_id_value = "unknown"
+                    warnings.append(
+                        "Encounter visit number field PV1.19 is present but empty and PV1.3 location is unavailable; "
+                        "using 'unknown' encounter identifier."
+                    )
         else:
             # Fallback: use location component from PV1.3 (first component)
             encounter_id_value = _first_component(pv1_3_raw)
