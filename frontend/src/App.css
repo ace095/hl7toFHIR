@@ -1,29 +1,268 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #f2efe7;
+  --panel: #fffdf8;
+  --ink: #1f252b;
+  --accent: #0f766e;
+  --accent-ink: #e9fbf8;
+  --soft: #d9d4c8;
+  --warn: #92400e;
+  --error: #b00020;
+}
+
 .container {
-  max-width: 960px;
-  margin: 2rem auto;
+  max-width: 1080px;
+  margin: 2rem auto 3rem;
   padding: 0 1rem;
-  font-family: Arial, sans-serif;
+  color: var(--ink);
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.hero {
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  color: #5a6370;
+}
+
+h1 {
+  margin: 0.35rem 0 0.45rem;
+  font-size: clamp(1.6rem, 2.2vw, 2.2rem);
+}
+
+.subtitle {
+  margin: 0;
+  color: #4b5563;
+}
+
+.controls,
+.editor-panel,
+.results {
+  background: var(--panel);
+  border: 1px solid var(--soft);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+}
+
+.controls {
+  margin-top: 1rem;
+}
+
+.workbench {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: minmax(360px, 1.1fr) minmax(320px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+label {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+select,
+button {
+  border-radius: 10px;
+  border: 1px solid #bfc8cf;
+  padding: 0.55rem 0.8rem;
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+
+button {
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: #f3f5f7;
+  border-color: #ccd4db;
+  color: #25313d;
+}
+
+.editor-panel {
+  margin-top: 1rem;
+}
+
+.editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  font-size: 0.82rem;
+  margin-bottom: 0.55rem;
+  color: #4b5563;
+}
+
+.ok,
+.warn {
+  padding: 0.14rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.ok {
+  color: #166534;
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+}
+
+.warn {
+  color: var(--warn);
+  background: #fff7ed;
+  border-color: #fdba74;
 }
 
 textarea {
   width: 100%;
-  min-height: 240px;
-  margin-top: 0.75rem;
-  font-family: monospace;
+  min-height: 250px;
+  border-radius: 12px;
+  border: 1px solid #ccd4db;
+  padding: 0.8rem;
+  resize: vertical;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.87rem;
+  background: #fff;
 }
 
-button {
+.action-row {
   margin-top: 0.75rem;
-  padding: 0.5rem 1rem;
-}
-
-pre {
-  background: #f5f5f5;
-  padding: 1rem;
-  overflow: auto;
-  white-space: pre-wrap;
 }
 
 .error {
-  color: #b00020;
+  margin-top: 0.85rem;
+  color: var(--error);
+  font-weight: 700;
+}
+
+.results {
+  margin-top: 0;
+  min-height: 380px;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.empty-state p {
+  margin: 0.55rem 0 0.65rem;
+  color: #4b5563;
+}
+
+.empty-state ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #334155;
+}
+
+.empty-state li {
+  margin-bottom: 0.35rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-grid article {
+  border: 1px solid #dde3e8;
+  border-radius: 12px;
+  padding: 0.65rem;
+}
+
+.summary-grid h3 {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #4b5563;
+}
+
+.summary-grid p {
+  margin: 0.35rem 0 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.83rem;
+  word-break: break-word;
+}
+
+.warnings {
+  margin-top: 0.85rem;
+}
+
+.warnings h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.warnings ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.warnings li {
+  margin-bottom: 0.32rem;
+  color: #7c2d12;
+}
+
+.json-header {
+  margin-top: 0.95rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.json-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+pre {
+  margin-top: 0.6rem;
+  background: #f8fafb;
+  border: 1px solid #dbe3ea;
+  border-radius: 12px;
+  padding: 0.85rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+@media (max-width: 640px) {
+  .container {
+    margin-top: 1rem;
+  }
+
+  .workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .json-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
