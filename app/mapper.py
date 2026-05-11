@@ -32,6 +32,49 @@ def _map_gender(raw: str) -> str:
     return mapping.get(raw.upper(), "unknown") if raw else "unknown"
 
 
+def _map_adt_trigger_to_encounter_status(trigger_event: str) -> str:
+    """
+    Map HL7 ADT trigger events (MSH-9.2) to FHIR Encounter.status.
+    
+    Risk mitigation: Trigger events encode clinical workflow state (admit, transfer, discharge).
+    Mapping to correct Encounter.status ensures downstream systems understand encounter lifecycle.
+    
+    FHIR Encounter.status: planned | arrived | in-progress | onleave | finished | cancelled
+    HL7 ADT Trigger Events:
+      - A01 (Admit): in-progress (patient now in active encounter)
+      - A02 (Transfer): in-progress (encounter continues, location changes)
+      - A03 (Discharge): finished (encounter has ended)
+      - A04 (Register): arrived (pre-encounter registration)
+      - A05 (Pre-admit): planned (scheduled but not yet active)
+      - A06 (Change outpatient to inpatient): in-progress (escalation)
+      - A07 (Change inpatient to outpatient): finished (de-escalation, encounter ends)
+      - A08 (Update patient info): in-progress (operational update, no status change)
+      - A11 (Cancel admit): cancelled (admit was reversed)
+      - A12 (Cancel transfer): cancelled (transfer was reversed)
+      - A13 (Cancel discharge): in-progress (discharge was reversed, patient still admitted)
+    """
+    mapping = {
+        # Admit/Start
+        "A01": "in-progress",  # Admit
+        "A02": "in-progress",  # Transfer
+        # Discharge/End
+        "A03": "finished",     # Discharge
+        "A07": "finished",     # Change inpatient to outpatient (de-escalation, encounter ends)
+        # Pre-encounter states
+        "A04": "arrived",      # Register (pre-encounter)
+        "A05": "planned",      # Pre-admit (future encounter)
+        # State transitions
+        "A06": "in-progress",  # Change outpatient to inpatient (escalation)
+        "A08": "in-progress",  # Update patient info (no status change)
+        # Cancellations
+        "A11": "cancelled",    # Cancel admit
+        "A12": "cancelled",    # Cancel transfer
+        "A13": "in-progress",  # Cancel discharge (reverses discharge, back to in-progress)
+    }
+    # Default to in-progress for unknown ADT types
+    return mapping.get(trigger_event, "in-progress") if trigger_event else "in-progress"
+
+
 def _parse_cx_identifier(raw: str) -> dict:
     """
     Parse an HL7 CX (composite ID) field: ID^Check Digit^Check Digit Scheme^Assigning Authority^Identifier Type
@@ -65,6 +108,12 @@ def _parse_cx_identifier(raw: str) -> dict:
 def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> Dict[str, object]:
     pid = segments["PID"]
     pv1 = segments.get("PV1")
+    msh = segments["MSH"]
+    
+    # Extract ADT trigger event from MSH-9.2 (format: MESSAGE_TYPE^TRIGGER_EVENT^MESSAGE_STRUCTURE)
+    msh9_raw = _safe_field(msh, 8)
+    msh9_components = msh9_raw.split("^") if msh9_raw else []
+    trigger_event = msh9_components[1] if len(msh9_components) > 1 else ""
 
     # Parse Patient Identifier (PID-3) with deterministic collision-safe logic
     pid3_raw = _safe_field(pid, 3)
@@ -142,10 +191,13 @@ def map_to_fhir_bundle(segments: Dict[str, List[str]], warnings: List[str]) -> D
         # Deterministic Encounter ID using same pattern as Patient for consistency
         encounter_identifier = f"{encounter_assigning_authority}|VN|{encounter_id_value}"
         
+        # Map ADT trigger event to Encounter status per HL7 workflow semantics
+        encounter_status = _map_adt_trigger_to_encounter_status(trigger_event)
+        
         encounter_resource: Dict[str, object] = {
             "resourceType": "Encounter",
             "id": encounter_identifier,
-            "status": "in-progress",
+            "status": encounter_status,
             "class": {"code": _safe_field(pv1, 2) or "IMP"},
             "subject": {"reference": f"Patient/{patient_identifier}"},
             "identifier": [

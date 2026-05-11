@@ -165,3 +165,86 @@ def test_deterministic_identifier_prevents_collisions() -> None:
     assert patient_a["id"] == "HOSP_A|MR|12345"
     assert patient_b["id"] == "HOSP_B|MR|12345"
     assert patient_a["id"] != patient_b["id"], "Identifiers should be scoped by facility"
+
+
+# ============================================================================
+# R3: ADT Trigger Event to Encounter Status Mapping
+# ============================================================================
+
+
+def test_adt_admit_maps_to_in_progress() -> None:
+    """A01 (Admit) should map to Encounter.status = in-progress."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, _ = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, [])
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["status"] == "in-progress"
+
+
+def test_adt_discharge_maps_to_finished() -> None:
+    """A03 (Discharge) should map to Encounter.status = finished."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A03|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, _ = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, [])
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["status"] == "finished"
+
+
+def test_adt_preadmit_maps_to_planned() -> None:
+    """A05 (Pre-admit) should map to Encounter.status = planned."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A05|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, _ = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, [])
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["status"] == "planned"
+
+
+def test_adt_register_maps_to_arrived() -> None:
+    """A04 (Register) should map to Encounter.status = arrived."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A04|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, _ = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, [])
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["status"] == "arrived"
+
+
+def test_adt_cancel_admit_maps_to_cancelled() -> None:
+    """A11 (Cancel Admit) should map to Encounter.status = cancelled."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A11|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, _ = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, [])
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["status"] == "cancelled"
+
+
+def test_unknown_adt_trigger_defaults_to_in_progress() -> None:
+    """Unknown ADT trigger events should default to in-progress."""
+    message = (
+        "MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A99|599102|P|2.3\r"
+        "PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r"
+        "PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345"
+    )
+    segments, _ = parse_hl7_message(message)
+    bundle = map_to_fhir_bundle(segments, [])
+    encounter = bundle["entry"][1]["resource"]
+    assert encounter["status"] == "in-progress"
