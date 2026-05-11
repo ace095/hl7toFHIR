@@ -50,6 +50,14 @@ function App() {
   const hasRequiredSegments = segmentNames.includes('MSH') && segmentNames.includes('PID')
 
   const resultJson = useMemo(() => (result ? JSON.stringify(result, null, 2) : ''), [result])
+  const warningItems = useMemo(() => {
+    const occurrences = new Map()
+    return (result?.warnings ?? []).map((warning) => {
+      const count = (occurrences.get(warning) ?? 0) + 1
+      occurrences.set(warning, count)
+      return { warning, key: `${warning}-${count}` }
+    })
+  }, [result])
 
   const applySelectedFeed = () => {
     const selected = sampleFeeds.find((feed) => feed.key === selectedFeed)
@@ -194,8 +202,8 @@ function App() {
                 <div className="warnings">
                   <h2>Warnings</h2>
                   <ul>
-                    {result.warnings.map((warning, index) => (
-                      <li key={`${index}-${warning}`}>{warning}</li>
+                    {warningItems.map(({ warning, key }) => (
+                      <li key={key}>{warning}</li>
                     ))}
                   </ul>
                 </div>

@@ -90,7 +90,8 @@ def _identifier_system(assigning_authority: str) -> str:
 
 
 def _fhir_safe_id(prefix: str, composite_identifier: str) -> str:
-    # 24 hex chars = 96 bits of SHA-256 output; deterministic and comfortably within FHIR id length limits.
+    # 24 hex chars = 96 bits of SHA-256 output; deterministic, within FHIR id length limits,
+    # and with negligible collision probability for expected MVP identifier volumes.
     identifier_hash = hashlib.sha256(composite_identifier.encode("utf-8")).hexdigest()[:24]
     return f"{prefix}-{identifier_hash}"
 
