@@ -3,7 +3,7 @@ import './App.css'
 
 const sampleMessage = `MSH|^~\\&|ADT1|MCM|IFENG|IFENG|20060529090131||ADT^A01|599102|P|2.3\r
 PID|1||123456^^^HOSP^MR||DOE^JOHN||19800101|M\r
-PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE|||||||||||VN12345`
+PV1|1|I|W^389^1^UABH||||1234^PHYSICIAN^ONE||||||||||||VN12345`
 
 const sampleFeeds = [
   {
@@ -11,7 +11,7 @@ const sampleFeeds = [
     label: 'A01 Admit (baseline)',
     message: `MSH|^~\\&|ADT_APP|HOSP_A|EHR|HOSP_A|20260510113010||ADT^A01|100002|P|2.5\r
 PID|1||900001^^^HOSP_A^MR||DOE^JANE^A||19880514|F\r
-PV1|1|I|3N^312^1^HOSP_A||||12345^SMITH^ALAN^^^^^NPI|||||||||||V000001^^^HOSP_A^VN`,
+PV1|1|I|3N^312^1^HOSP_A||||12345^SMITH^ALAN^^^^^NPI||||||||||||V000001^^^HOSP_A^VN`,
   },
   {
     key: 'mapped-warnings',
